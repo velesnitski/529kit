@@ -55,6 +55,25 @@ else
     echo "[3] hermes not installed — skipped"
 fi
 
+# 4. cloud fallback tier (optional): set KIT529_CLOUD_MODEL to include it.
+# Drill this tier too — free cloud tiers get overloaded, and reputation
+# is not availability. A failure here is a warning, not a drill failure:
+# the local tier above is the layer that must never depend on anyone.
+if [[ -n "${KIT529_CLOUD_MODEL:-}" ]] && command -v hermes >/dev/null 2>&1; then
+    echo "[4] cloud fallback tier ($KIT529_CLOUD_MODEL via ${KIT529_CLOUD_PROVIDER:-openrouter})..."
+    T0=$(date +%s)
+    OUT=$(hermes -z "Reply with exactly one word: pong" \
+        -m "$KIT529_CLOUD_MODEL" --provider "${KIT529_CLOUD_PROVIDER:-openrouter}" 2>/dev/null | tail -1)
+    T1=$(date +%s)
+    if [[ "$OUT" == *pong* ]]; then
+        echo "    $((T1-T0))s, answer: $OUT"
+    else
+        echo "    WARN: cloud tier did not answer (overloaded free tier?). Pick another model."
+    fi
+else
+    echo "[4] cloud tier skipped (set KIT529_CLOUD_MODEL=<model> to drill it too)"
+fi
+
 echo
 echo "DRILL PASSED. Numbers to remember: cold ${COLD}s, warm ${WARM}s."
 echo "Keep-alive default unloads the model after ~5 min idle; during a long"

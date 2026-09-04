@@ -65,7 +65,9 @@ Treat it as a **capable L1 operator, not a detective**. Scope your outage plans 
 ## The three-tier plan
 
 1. **Tier 0 — don't switch yet.** Check the provider status page; most 529 windows are minutes. Try a smaller cloud model tier first.
-2. **Tier 1 — a second cloud.** An Anthropic outage is not an internet outage. A single OpenRouter key in `hermes fallback add` gets you frontier-class quality from other providers. Cheap, ten minutes, do it once.
+2. **Tier 1 — a second cloud.** An Anthropic outage is not an internet outage. A single OpenRouter key in `hermes fallback add` gets you frontier-class quality from other providers. Cheap, ten minutes, do it once. Two lessons from field-testing this tier:
+   - **Reputation is not availability.** Our on-paper favorite `:free` model returned HTTP 429 on every attempt while an unhyped one answered correctly in 3.5 s. Pick your fallback model by drilling it (`KIT529_CLOUD_MODEL=<model> ./drill.sh`), not by leaderboard.
+   - **`:free` endpoints may log and train on your prompts.** Anything sensitive stays on the local tier or paid models; the free tier is for drafts and generic code.
 3. **Tier 2 — this kit.** Works when *every* cloud is gone: total outage, air travel, blackout, network cutoff.
 
 ## Ground rules learned the hard way
