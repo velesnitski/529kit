@@ -34,6 +34,7 @@ hermes -z "your question" --in <dir> # one-shot
 | `runbook.template.md` | Fill-in outage runbook — keep it on disk, not in the cloud |
 | `mcp/` | Wire your MCP servers into the local agent without leaking secrets |
 | `prompts/` | Prompt scaffolding that small models actually need |
+| `docs/claude-code-local.md` | Lane 2b: keep using Claude Code itself, on a local model |
 
 ## Pick a model for your RAM
 
@@ -68,7 +69,9 @@ Treat it as a **capable L1 operator, not a detective**. Scope your outage plans 
 2. **Tier 1 — a second cloud.** An Anthropic outage is not an internet outage. A single OpenRouter key in `hermes fallback add` gets you frontier-class quality from other providers. Cheap, ten minutes, do it once. Two lessons from field-testing this tier:
    - **Reputation is not availability.** Our on-paper favorite `:free` model returned HTTP 429 on every attempt while an unhyped one answered correctly in 3.5 s. Pick your fallback model by drilling it (`KIT529_CLOUD_MODEL=<model> ./drill.sh`), not by leaderboard.
    - **`:free` endpoints may log and train on your prompts.** Anything sensitive stays on the local tier or paid models; the free tier is for drafts and generic code.
-3. **Tier 2 — this kit.** Works when *every* cloud is gone: total outage, air travel, blackout, network cutoff.
+3. **Tier 2 — this kit.** Works when *every* cloud is gone: total outage, air travel, blackout, network cutoff. Two local lanes:
+   - **Hermes** (reference): the MCP lane — wire a read-only server, drilled scaffolds.
+   - **Claude Code on a local model** (`docs/claude-code-local.md`): your daily harness, unchanged, over an [Unsloth](https://unsloth.ai) server. Why it earned a lane: on our fixed extraction bench the *same* 20B scored **0/10 through Hermes (15 attempts) and 9/10 through Claude Code** at the same ~15–16k tokens of harness context. Harness quality, not weight, is what sinks small models — the lane doc has the numbers and the gotchas (disable MCP, one slot, attribution header off).
 
 ## Ground rules learned the hard way
 
@@ -79,7 +82,7 @@ Treat it as a **capable L1 operator, not a detective**. Scope your outage plans 
 
 ## FAQ
 
-**Why Hermes?** It's the reference harness here — self-contained installer, MCP support, works against any OpenAI-compatible endpoint. But Ollama is the base layer: any compatible client works. The kit's ideas (drill, scaffold, server-side gates) are harness-agnostic.
+**Why Hermes?** It's the reference harness for the MCP lane — self-contained installer, MCP support, works against any OpenAI-compatible endpoint. But the harness is a *choice with measurable consequences*: the same 20B model scored 0/10 through Hermes and 9/10 through Claude Code on an identical agentic task (see `docs/claude-code-local.md`). The kit's ideas (drill, scaffold, server-side gates) are harness-agnostic; your harness pick is not.
 
 **Why not just use a bigger model?** RAM math. The table above is what actually fits next to your browser and IDE.
 
