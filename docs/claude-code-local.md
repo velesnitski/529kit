@@ -34,6 +34,26 @@ scorer leniency (a partial answer that substring-matched the golden),
 and the serving layer's tool-call healing means this measures
 harness+server as a system. The 0-vs-9 gap stands either way.
 
+## One command
+
+```bash
+./lane-claude.sh                 # server + Claude Code on the local model
+./lane-claude.sh --server-only   # server only, then: hermes --in <dir>
+pkill -f 'unsloth run'           # stop the server when the cloud is back
+```
+
+Unsloth generates a new API key on every start and has no flag to pin
+it. The script starts the server, waits for the key to appear in the
+server's own log (`~/.unsloth/studio/logs/server/`), hands it to Hermes
+if Hermes is installed, and launches Claude Code with MCP disabled. The
+key is never printed. Model, GGUF variant, context and extra flags come
+from `KIT529_UNSLOTH_MODEL`, `KIT529_GGUF_VARIANT`, `KIT529_CTX` and
+`KIT529_UNSLOTH_FLAGS`. Drilled 2026-09-28: server ready in 34 s warm,
+first Claude Code answer in 73 s including its startup.
+
+The steps below are what the script does, for when you want to run them
+by hand.
+
 ## Setup
 
 1. **Install Unsloth Studio** (serves GGUF models behind an
@@ -75,6 +95,26 @@ harness+server as a system. The 0-vs-9 gap stands either way.
 
    Or let `unsloth start claude` wire all of the above for you (the
    manual path is what we verified; the wrapper is the same wiring).
+
+## Which model
+
+The reference numbers above are for `gpt-oss-20b`. A later bench
+(2026-09-14, same 10-field extraction task) is worth knowing before you
+pick: the 20B scored 0/10 through Hermes across 15 attempts, while
+`unsloth/gemma-4-26B-A4B-it-GGUF` at `UD-Q3_K_XL` was the only model
+that survived both harnesses, 10/10 through Hermes and 7/10 strict (about
+10 by a human reading) through Claude Code. If you want one resident
+model for both lanes, that is the one, with two flags that matter:
+
+```bash
+KIT529_UNSLOTH_MODEL=unsloth/gemma-4-26B-A4B-it-GGUF KIT529_GGUF_VARIANT=UD-Q3_K_XL \
+KIT529_CTX=32768 KIT529_UNSLOTH_FLAGS="--speculative-type off" ./lane-claude.sh
+```
+
+Its GGUF bundle ships a draft model and a vision projector that
+llama.cpp loads by default; with a 64K context that put a 24 GB machine
+into swap at 1.2 tok/s. `--speculative-type off` and a 32K context bring
+it to about 40 tok/s decode, 100+ tok/s prefill.
 
 ## The gotchas, learned so you don't have to
 

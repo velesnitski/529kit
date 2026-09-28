@@ -34,6 +34,7 @@ hermes -z "your question" --in <dir> # one-shot
 | `runbook.template.md` | Fill-in outage runbook — keep it on disk, not in the cloud |
 | `mcp/` | Wire your MCP servers into the local agent without leaking secrets |
 | `prompts/` | Prompt scaffolding that small models actually need |
+| `lane-claude.sh` | Lane 2b in one command: local server up, key caught, Claude Code launched |
 | `docs/claude-code-local.md` | Lane 2b: keep using Claude Code itself, on a local model |
 
 ## Pick a model for your RAM
