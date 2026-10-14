@@ -54,6 +54,26 @@ first Claude Code answer in 73 s including its startup.
 The steps below are what the script does, for when you want to run them
 by hand.
 
+## Ollama only, no Unsloth
+
+If Ollama is already on the machine (the kit's reference), Claude Code can use it directly: Ollama
+serves an Anthropic-compatible `/v1/messages`, no key needed.
+
+```bash
+KIT529_ENGINE=ollama ./lane-claude.sh                       # gpt-oss:20b, context 32K
+KIT529_ENGINE=ollama KIT529_OLLAMA_MODEL=qwen3:14b ./lane-claude.sh
+```
+
+The one trap: Ollama's default context is 4 096 tokens and Claude Code's system prompt alone is
+larger, so the first attempt answered a question nobody asked. The script creates a variant
+(`gpt-oss:32768ctx`, same blob on disk, `num_ctx` raised) and uses that. Verified 2026-10-14 on
+`gpt-oss:20b`: first answer in 44–58 s including model load; a three-turn tool task (list files,
+write a file, answer) in 61 s. Claude Code prints an `unrecognized_model` notice for the custom
+name; it is harmless.
+
+Unsloth stays the reference engine because the same server also drives the Hermes lane; the Ollama
+path is for machines that will only ever run lane 2b.
+
 ## Setup
 
 1. **Install Unsloth Studio** (serves GGUF models behind an
@@ -115,6 +135,25 @@ Its GGUF bundle ships a draft model and a vision projector that
 llama.cpp loads by default; with a 64K context that put a 24 GB machine
 into swap at 1.2 tok/s. `--speculative-type off` and a 32K context bring
 it to about 40 tok/s decode, 100+ tok/s prefill.
+
+## Eight tasks, scored by code
+
+`bench/l1bench.py` runs eight outage-grade tasks (shell one-liner, JSON extraction, translation,
+small code fix, alert summary, tool-call JSON, regex, mail labels) against any OpenAI-compatible
+endpoint and grades every answer in code. Reference machine, 2026-10-14, each model alone in memory:
+
+| | gpt-oss:20b (Ollama) | gemma-4-26B UD-Q3 (Unsloth) |
+|---|---|---|
+| score | 8/8 | 7/8 |
+| total time | 74 s | 191 s (289 s with a 6 000-token cap) |
+| tokens per second | ~39 | ~37 |
+| failure | — | shell one-liner: never left its reasoning, empty answer even at 6 000 tokens |
+
+Same speed, different reasoning length: gemma thinks two to seven times longer per task. Together
+with the extraction bench above (gpt-oss 9/10 in Claude Code, 0/10 in Hermes; gemma 7/10 and
+10/10), the choice is per lane: gpt-oss for Claude Code and direct questions, gemma where Hermes and
+MCP tools are involved. If a reasoning model returns nothing on a terse prompt, raise
+`L1_MAX_TOKENS` or ask again with "answer in one line, no reasoning".
 
 ## The gotchas, learned so you don't have to
 

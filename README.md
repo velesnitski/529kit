@@ -35,7 +35,10 @@ hermes -z "your question" --in <dir> # one-shot
 | `mcp/` | Wire your MCP servers into the local agent without leaking secrets |
 | `prompts/` | Prompt scaffolding that small models actually need |
 | `lane-claude.sh` | Lane 2b in one command: local server up, key caught, Claude Code launched |
-| `docs/claude-code-local.md` | Lane 2b: keep using Claude Code itself, on a local model |
+| `docs/claude-code-local.md` | Lane 2b: keep using Claude Code itself, on a local model; Unsloth or Ollama |
+| `bench/l1bench.py` | Eight outage-grade tasks graded by code, for any OpenAI-compatible endpoint; run it per candidate model |
+| `docs/decision-models.md` | Lane 3: local decision models (`/v1/systemone`), measured: where they pay and where they don't |
+| `bench/systemone_test.py`, `hooks/shadow-gate.sh` | The 25-case smoke test and the shadow gate from that doc |
 
 ## Pick a model for your RAM
 
@@ -47,6 +50,12 @@ hermes -z "your question" --in <dir> # one-shot
 | 48 GB+ | `gpt-oss:120b`, `qwen3:32b` | approaching junior-cloud quality |
 
 *(Model names as of 2026-09; check `ollama search` for current tags.)*
+
+Measured on the reference machine with `bench/l1bench.py` (2026-10-14): `gpt-oss:20b` 8/8 in 74 s,
+`gemma-4-26B` 7/8 in 191 s at the same tokens per second. But gemma is the one that survives Hermes
+with MCP tools (10/10 against gpt-oss's 0/10), so pick by lane, not by score:
+gpt-oss for Claude Code and direct questions, gemma for the Hermes lane. Details in
+`docs/claude-code-local.md`.
 
 ## The honest ceiling
 
@@ -72,7 +81,9 @@ Treat it as a **capable L1 operator, not a detective**. Scope your outage plans 
    - **`:free` endpoints may log and train on your prompts.** Anything sensitive stays on the local tier or paid models; the free tier is for drafts and generic code.
 3. **Tier 2 — this kit.** Works when *every* cloud is gone: total outage, air travel, blackout, network cutoff. Two local lanes:
    - **Hermes** (reference): the MCP lane — wire a read-only server, drilled scaffolds.
-   - **Claude Code on a local model** (`docs/claude-code-local.md`): your daily harness, unchanged, over an [Unsloth](https://unsloth.ai) server. Why it earned a lane: on our fixed extraction bench the *same* 20B scored **0/10 through Hermes (15 attempts) and 9/10 through Claude Code** at the same ~15–16k tokens of harness context. Harness quality, not weight, is what sinks small models — the lane doc has the numbers and the gotchas (disable MCP, one slot, attribution header off).
+   - **Claude Code on a local model** (`docs/claude-code-local.md`): your daily harness, unchanged, over an [Unsloth](https://unsloth.ai) server, or over Ollama alone with the context raised. Why it earned a lane: on our fixed extraction bench the *same* 20B scored **0/10 through Hermes (15 attempts) and 9/10 through Claude Code** at the same ~15–16k tokens of harness context. Harness quality, not weight, is what sinks small models — the lane doc has the numbers and the gotchas (disable MCP, one slot, attribution header off).
+
+   - **Decision models** (`docs/decision-models.md`): a third kind of lane, for triage rather than text. Measured: mail and alert labels in about a second each, offline; a negative result on code review, where the pre-filter saved 2 % and lost 60 % of the findings.
 
 ## Ground rules learned the hard way
 

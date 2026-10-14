@@ -3,8 +3,9 @@
 # key, hand the key to Hermes if present, launch Claude Code on the local model
 # with MCP disabled. See docs/claude-code-local.md.
 #
-#   ./lane-claude.sh                 # server + Claude Code
+#   ./lane-claude.sh                 # server + Claude Code (Unsloth, the reference engine)
 #   ./lane-claude.sh --server-only   # server only (then: hermes --in <dir>)
+#   KIT529_ENGINE=ollama ./lane-claude.sh   # Claude Code on Ollama instead, no Unsloth (see the doc)
 #   pkill -f 'unsloth run'           # stop the server afterwards
 #
 # Unsloth generates a fresh API key on every start and has no flag to fix it
@@ -23,6 +24,39 @@ WAIT_S="${KIT529_WAIT:-300}"
 
 say()  { printf '\033[1;36m[529kit]\033[0m %s\n' "$*"; }
 warn() { printf '  \033[1;33m!\033[0m %s\n' "$*"; }
+
+ENGINE="${KIT529_ENGINE:-unsloth}"          # unsloth (reference) | ollama (no Unsloth needed)
+
+if [[ "$ENGINE" == "ollama" ]]; then
+    # Ollama serves an Anthropic-compatible /v1/messages, so Claude Code needs no key, only a model
+    # whose context is large enough for its system prompt: the default 4096 truncates it and the
+    # model answers nonsense. A variant with num_ctx raised fixes that; it shares the blob on disk.
+    OMODEL="${KIT529_OLLAMA_MODEL:-gpt-oss:20b}"
+    OCTX="${KIT529_OLLAMA_CTX:-32768}"
+    VARIANT="${OMODEL%%:*}:${OCTX}ctx"
+    command -v ollama >/dev/null 2>&1 || { warn "ollama not on PATH"; exit 1; }
+    command -v claude >/dev/null 2>&1 || [[ "${1:-}" == "--server-only" ]] || { warn "claude not on PATH"; exit 1; }
+    pgrep -f "unsloth run" >/dev/null 2>&1 && { warn "an Unsloth server is running; two residents do not fit. Stop it first."; exit 1; }
+    if ! curl -s -m 2 http://localhost:11434/api/version >/dev/null 2>&1; then
+        say "Starting ollama serve"
+        (nohup ollama serve >/dev/null 2>&1 &)
+        for _ in $(seq 1 30); do curl -s -m 2 http://localhost:11434/api/version >/dev/null 2>&1 && break; sleep 1; done
+    fi
+    if ! ollama list 2>/dev/null | grep -q "^${VARIANT}"; then
+        say "Creating $VARIANT (num_ctx $OCTX) from $OMODEL"
+        MF="$(mktemp)"; printf 'FROM %s\nPARAMETER num_ctx %s\n' "$OMODEL" "$OCTX" > "$MF"
+        ollama create "$VARIANT" -f "$MF" >/dev/null; rm -f "$MF"
+    fi
+    if [[ "${1:-}" == "--server-only" ]]; then
+        say "Ollama up with $VARIANT. Stop the model with: ollama stop $VARIANT"
+        exit 0
+    fi
+    say "Launching Claude Code on $VARIANT via Ollama (MCP disabled)"
+    ANTHROPIC_BASE_URL="http://localhost:11434" ANTHROPIC_AUTH_TOKEN=ollama CLAUDE_CODE_ATTRIBUTION_HEADER=0 \
+        claude --model "$VARIANT" --strict-mcp-config --mcp-config <(echo '{"mcpServers":{}}') "$@"
+    say "Model unloads after Ollama's keep-alive; now: ollama stop $VARIANT"
+    exit 0
+fi
 
 command -v unsloth >/dev/null 2>&1 || { warn "unsloth not on PATH (install: docs/claude-code-local.md)"; exit 1; }
 command -v claude  >/dev/null 2>&1 || [[ "${1:-}" == "--server-only" ]] || { warn "claude not on PATH"; exit 1; }
